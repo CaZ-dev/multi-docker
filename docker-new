@@ -1,0 +1,63 @@
+# ================================  
+# Stage 1: Build dependencies  
+# ================================  
+FROM python:3.11-slim AS builder  
+  
+# Set environment variables for Python  
+ENV PYTHONDONTWRITEBYTECODE=1 \  
+    PYTHONUNBUFFERED=1 \  
+    PIP_NO_CACHE_DIR=1  
+  
+# Install system dependencies  
+RUN apt-get update && apt-get install -y --no-install-recommends \  
+    build-essential \  
+    libpq-dev \  
+    curl \  
+    && rm -rf /var/lib/apt/lists/*  
+  
+# Set working directory  
+WORKDIR /app  
+  
+# Install pip-tools for dependency management  
+RUN pip install --upgrade pip pip-tools  
+  
+# Copy only requirements to leverage Docker cache  
+COPY requirements.in .  
+RUN pip-compile requirements.in  
+RUN pip install -r requirements.txt  
+  
+# ================================  
+# Stage 2: Production image  
+# ================================  
+FROM python:3.11-slim  
+  
+# Set environment variables for runtime  
+ENV PYTHONDONTWRITEBYTECODE=1 \  
+    PYTHONUNBUFFERED=1 \  
+    APP_HOME=/app \  
+    PATH="/app/.venv/bin:$PATH"  
+  
+# Install runtime dependencies (smaller footprint)  
+RUN apt-get update && apt-get install -y --no-install-recommends \  
+    libpq-dev \  
+    && rm -rf /var/lib/apt/lists/*  
+  
+# Set working directory  
+WORKDIR $APP_HOME  
+  
+# Copy installed dependencies from builder stage  
+COPY --from=builder /usr/local /usr/local  
+  
+# Copy application source code  
+COPY . .  
+  
+# Create non-root user  
+RUN adduser --disabled-password --gecos "" appuser \  
+    && chown -R appuser $APP_HOME  
+USER appuser  
+  
+# Expose application port  
+EXPOSE 8000  
+  
+# Use gunicorn for production serving  
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]  
