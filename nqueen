@@ -1,0 +1,29 @@
+def solveNQueens(n: int):
+    def backtrack(row, cols, diag1, diag2, current_board):
+        # Base case: If we've placed queens in all rows, return the solution
+        if row == n:
+            solutions.append(["".join(row) for row in current_board])
+            return
+
+        for col in range(n):
+            # Check if the current column or diagonals are attacked
+            if col in cols or (row - col) in diag1 or (row + col) in diag2:
+                continue
+
+            # Place the queen and mark the column and diagonals as occupied
+            current_board[row][col] = 'Q'
+            backtrack(row + 1, cols | {col}, diag1 | {row - col}, diag2 | {row + col}, current_board)
+            current_board[row][col] = '.'  # Backtrack: Remove the queen
+
+    solutions = []
+    board = [['.' for _ in range(n)] for _ in range(n)]  # Initialize empty board
+    backtrack(0, set(), set(), set(), board)
+    return solutions
+
+# Example usage:
+n = 4
+result = solveNQueens(n)
+for solution in result:
+    for row in solution:
+        print(row)
+    print()
